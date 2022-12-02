@@ -1,5 +1,4 @@
-name: Build and release beta
-
+name: Build and upload artifacts
 on:
   workflow_dispatch:
     inputs:
@@ -7,14 +6,9 @@ on:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions-tester
         required: false
       git-branch:
-        description: Git branch (optional, defaults to master)
-        default: master
+        description: Git branch (optional, defaults to proguard)
+        default: proguard
         required: false
-      git-draft:
-        type: boolean
-        description: Create a draft release
-        required: false
-        default: false
 env:
     REPO: ${{ github.event.inputs.git-repo }}
 
@@ -46,18 +40,15 @@ jobs:
       - name: Build the tester
         uses: gradle/gradle-build-action@v2.3.3
         with:
-          arguments: :server:shadowJar
+          arguments: :server:optimizeShadowJar
           gradle-home-cache-cleanup: true
       
-      - run: |
-          if git tag | grep -q beta; then
-            git push origin -d beta
-          fi
-      - name: Create release
-        uses: softprops/action-gh-release@v1
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: Beta release
-          tag_name: beta
-          files: server/build/aniyomi-extensions-tester-v*.jar
-          draft: ${{ github.event.inputs.git-draft }}
+          name: Compiled-things
+          path: |
+            server/build/aniyomi-extensions-tester-v*.jar
+            server/build/min/*
+          retention-days: 1
 
