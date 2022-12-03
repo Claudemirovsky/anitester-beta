@@ -47,8 +47,6 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Compiled-things
-          path: |
-            server/build/aniyomi-extensions-tester-v*.jar
-            server/build/min/*
+          path: server/build/min/aniyomi-extensions-tester-v*.jar
           retention-days: 1
 
