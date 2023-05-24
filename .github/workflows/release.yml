@@ -6,6 +6,11 @@ on:
       git-repo:
         description: Git repo (Optional, defaults to <your name>/aniyomi-extensions-tester
         required: false
+      optimized-build:
+        type: boolean
+        description: Upload a optimized build
+        required: false
+        default: false
       git-branch:
         description: Git branch (optional, defaults to master)
         default: master
@@ -17,16 +22,24 @@ on:
         default: false
 env:
     REPO: ${{ github.event.inputs.git-repo }}
+    TASK_NAME: shadowJar
+    BUILD_DIR: server/build
 
 jobs:
   build-tester:
     runs-on: ubuntu-latest
     steps:
       - name: Check inputs
-        if: env.REPO == ''
         run: |
-          set -e
-          echo "REPO=${{ github.repository_owner }}/aniyomi-extensions-tester" >> $GITHUB_ENV
+          set -x
+          if [[ "$REPO" == "" ]]; then
+            echo "REPO=${{ github.repository_owner }}/aniyomi-extensions-tester" >> $GITHUB_ENV
+          fi
+          if [[ "${{ github.event.inputs.optimized-build }}" == "true" ]]; then
+            echo "TASK_NAME=optimizeShadowJar" >> $GITHUB_ENV
+            echo "BUILD_DIR=$BUILD_DIR/min" >> $GITHUB_ENV
+          fi
+
       - name: Clone Repository (Latest)
         uses: actions/checkout@v3
         with:
@@ -40,24 +53,26 @@ jobs:
           java-version: 11
           distribution: adopt
 
-      - name: Create the android.jar
-        run: ./AndroidCompat/getAndroid.sh
+      - name: Copy CI gradle.properties
+        run: |
+          mkdir -p ~/.gradle
+          cp .github/runner-files/ci-gradle.properties ~/.gradle/gradle.properties
 
       - name: Build the tester
         uses: gradle/gradle-build-action@v2.3.3
         with:
-          arguments: :server:shadowJar
+          arguments: :server:${{ env.TASK_NAME }}
           gradle-home-cache-cleanup: true
       
-      - run: |
-          if git tag | grep -q beta; then
-            git push origin -d beta
-          fi
-      - name: Create release
-        uses: softprops/action-gh-release@v1
+      - name: Upload beta
+        uses: xresloader/upload-to-github-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: Beta release
-          tag_name: beta
-          files: server/build/aniyomi-extensions-tester-v*.jar
+          file: "${{ env.BUILD_DIR }}/*.jar"
+          prerelease: false
           draft: ${{ github.event.inputs.git-draft }}
+          verbose: true
+          tag_name: beta
+          overwrite: true          
 
